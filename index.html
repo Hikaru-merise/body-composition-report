@@ -32,6 +32,7 @@
 
   .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 16px; }
   .form-grid.cols2 { grid-template-columns: 1fr 1fr; }
+  .form-grid.cols4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
   .field label { font-size: 11px; color: #777; display: block; margin-bottom: 3px; }
   .field input, .field select {
     width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px;
@@ -41,7 +42,7 @@
   .field input::placeholder { color: #bbb; font-size: 13px; }
   .field .unit { font-size: 11px; color: #999; }
 
-  .btn-row { display: flex; gap: 12px; justify-content: center; margin-top: 28px; }
+  .btn-row { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
   .btn {
     padding: 14px 40px; border: none; border-radius: 10px; font-size: 16px;
     font-weight: 600; cursor: pointer; transition: all .2s;
@@ -51,7 +52,11 @@
   .btn-primary:disabled { background: #aaa; cursor: not-allowed; transform: none; box-shadow: none; }
   .btn-secondary { background: #e8e8e8; color: #555; }
   .btn-secondary:hover { background: #ddd; }
+  .btn-outline { background: #fff; color: var(--primary); border: 2px solid var(--primary); }
+  .btn-outline:hover { background: #e8f0fe; }
   .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; }
+  .btn-danger-sm { padding: 4px 10px; font-size: 11px; border-radius: 6px; background: #fce8e6; color: var(--red); border: 1px solid #f5c6cb; cursor: pointer; }
+  .btn-danger-sm:hover { background: #f8d7da; }
 
   .sample-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; font-size: 12px; color: #888; }
   .sample-bar button { font-size: 11px; padding: 4px 10px; border: 1px solid #c5d5f5; border-radius: 6px; background: #f0f4ff; color: var(--primary); cursor: pointer; }
@@ -59,10 +64,36 @@
 
   .validation-msg { font-size: 11px; color: var(--red); margin-top: 6px; display: none; text-align: center; }
 
+  /* ===== History Panel ===== */
+  .history-panel { background: #fff; border-radius: 12px; padding: 16px 20px; margin-top: 20px; box-shadow: 0 1px 6px rgba(0,0,0,.08); }
+  .history-panel h3 { font-size: 15px; color: var(--primary); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; }
+  .history-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .history-table th { background: #f0f4ff; color: var(--primary); padding: 8px 6px; text-align: left; font-weight: 600; white-space: nowrap; }
+  .history-table td { padding: 7px 6px; border-bottom: 1px solid #eee; white-space: nowrap; }
+  .history-table tr:hover td { background: #f8faff; }
+  .history-table .delta { font-size: 10px; font-weight: 600; }
+  .delta-up { color: var(--red); }
+  .delta-down { color: var(--green); }
+  .delta-up-good { color: var(--green); }
+  .delta-down-bad { color: var(--red); }
+  .delta-neutral { color: #888; }
+  .history-actions { display: flex; gap: 8px; }
+  .history-empty { text-align: center; color: #aaa; font-size: 13px; padding: 20px; }
+  .history-scroll { max-height: 300px; overflow-y: auto; }
+  .load-btn { font-size: 11px; padding: 3px 8px; border: 1px solid #c5d5f5; border-radius: 4px; background: #f0f4ff; color: var(--primary); cursor: pointer; }
+  .load-btn:hover { background: #dce8ff; }
+
+  /* ===== Privacy Note ===== */
+  .privacy-note {
+    display: flex; align-items: flex-start; gap: 8px; background: #e6f4ea; border: 1px solid #b7e1cd;
+    border-radius: 8px; padding: 10px 14px; margin-top: 16px; font-size: 11px; color: #137333; line-height: 1.5;
+  }
+  .privacy-note .lock-icon { font-size: 18px; flex-shrink: 0; }
+
   /* ===== Report ===== */
   #app-report { display: none; }
   @media print {
-    #app-input { display: none !important; }
+    #app-input, #app-history { display: none !important; }
     #app-report { display: block !important; }
     body { background: #fff; }
     .back-btn-area { display: none !important; }
@@ -102,6 +133,11 @@
   .r-summary .action-card { background: #fff; border: 1px solid #d6e4f5; border-radius: 6px; padding: 4px 8px; }
   .r-summary .action-card .ac-label { font-size: 10px; font-weight: 700; color: var(--primary); }
   .r-summary .action-card .ac-body { font-size: 9.5px; color: #555; line-height: 1.5; }
+  .r-prev-compare { margin-top: 8px; padding-top: 6px; border-top: 1px dashed #c5d5f5; }
+  .r-prev-compare h4 { font-size: 10px; color: var(--primary); margin-bottom: 3px; }
+  .r-prev-compare table { width: 100%; font-size: 9.5px; border-collapse: collapse; }
+  .r-prev-compare th { text-align: left; color: #888; padding: 2px 6px; font-weight: 600; }
+  .r-prev-compare td { padding: 2px 6px; }
   .r-footer { margin-top: 8px; text-align: center; font-size: 9px; color: #bbb; border-top: 1px solid #eee; padding-top: 4px; }
   .back-btn-area { text-align: center; margin: 20px 0; }
 </style>
@@ -133,9 +169,13 @@
 
   <!-- Profile section -->
   <div class="section-label">プロフィール</div>
-  <div class="form-grid cols2">
+  <div class="form-grid cols4">
+    <div class="field"><label>氏名</label><input type="text" id="f_name" placeholder="例: 山田太郎"></div>
+    <div class="field"><label>測定日</label><input type="date" id="f_date"></div>
     <div class="field"><label>性別</label><select id="f_gender"><option value="male">男性</option><option value="female">女性</option></select></div>
     <div class="field"><label>年齢 <span class="unit">歳</span></label><input type="number" id="f_age" placeholder="例: 39"></div>
+  </div>
+  <div class="form-grid cols2" style="margin-top:10px;">
     <div class="field"><label>身長 <span class="unit">cm</span></label><input type="number" step="0.1" id="f_height" placeholder="例: 167.0"></div>
   </div>
 
@@ -160,6 +200,28 @@
 
   <div class="btn-row">
     <button class="btn btn-primary" onclick="generateReport()">レポートを生成</button>
+  </div>
+
+  <!-- Privacy Note -->
+  <div class="privacy-note">
+    <span class="lock-icon">🔒</span>
+    <div>
+      <strong>プライバシー保護について：</strong>入力された氏名・測定データは<strong>すべてお使いのブラウザ内（localStorage）にのみ保存</strong>されます。
+      外部サーバーへの送信は一切行いません。データは「CSVエクスポート」でスプレッドシートに取り込めます。
+      ブラウザのデータを消去すると履歴も削除されます。
+    </div>
+  </div>
+
+  <!-- History Panel -->
+  <div class="history-panel" id="historyPanel">
+    <h3>
+      📋 測定履歴データベース
+      <div class="history-actions">
+        <button class="sample-bar button load-btn" onclick="exportCSV()" title="スプレッドシートで開けます">📥 CSVエクスポート</button>
+        <button class="btn-danger-sm" onclick="clearHistory()">全履歴削除</button>
+      </div>
+    </h3>
+    <div class="history-scroll" id="historyBody"></div>
   </div>
 </div>
 
@@ -188,6 +250,9 @@ photoInput.addEventListener('change', e => {
   }
 });
 
+// ===== Init date =====
+document.getElementById('f_date').value = new Date().toISOString().slice(0,10);
+
 // ===== Auto-compute =====
 ['f_weight','f_height','f_bodyFatPct','f_fatMass'].forEach(id => {
   document.getElementById(id).addEventListener('input', autoCompute);
@@ -195,20 +260,13 @@ photoInput.addEventListener('change', e => {
 
 function autoCompute() {
   const w = pf('f_weight'), h = pf('f_height'), fat = pf('f_bodyFatPct'), fatM = pf('f_fatMass');
-
-  // BMI
   if (w && h) {
-    const bmi = (w / (h/100)**2).toFixed(1);
     const el = document.getElementById('f_bmi');
-    if (!el.dataset.manual) el.value = bmi;
+    if (!el.dataset.manual) el.value = (w / (h/100)**2).toFixed(1);
   }
-
-  // Fat mass from %
   if (w && fat && !pf('f_fatMass')) {
     document.getElementById('f_fatMass').value = (w * fat / 100).toFixed(1);
   }
-
-  // Lean mass
   const currentFatM = pf('f_fatMass');
   if (w && currentFatM) {
     const el = document.getElementById('f_leanMass');
@@ -216,7 +274,6 @@ function autoCompute() {
   }
 }
 
-// Mark field as manually edited
 document.querySelectorAll('#app-input input[type=number]').forEach(el => {
   el.addEventListener('input', function() {
     if (this.id === 'f_bmi' || this.id === 'f_leanMass') this.dataset.manual = '1';
@@ -224,10 +281,11 @@ document.querySelectorAll('#app-input input[type=number]').forEach(el => {
 });
 
 function pf(id) { const v = document.getElementById(id).value; return v ? parseFloat(v) : null; }
+function sf(id) { return document.getElementById(id).value || ''; }
 
 // ===== Sample Data =====
 function loadSample() {
-  const sample = { f_gender:'male', f_age:39, f_height:167.0, f_weight:64.4, f_bodyFatPct:18.8,
+  const sample = { f_name:'山田太郎', f_gender:'male', f_age:39, f_height:167.0, f_weight:64.4, f_bodyFatPct:18.8,
     f_fatMass:12.1, f_leanMass:52.3, f_muscleMass:49.6, f_musclePct:77.0,
     f_waterMass:35.5, f_waterPct:55.1, f_boneMass:2.7, f_bmr:1442, f_visceralFat:9, f_bmi:23.1 };
   for (const [id, val] of Object.entries(sample)) {
@@ -238,12 +296,153 @@ function loadSample() {
 }
 
 function clearAll() {
-  document.querySelectorAll('#app-input input[type=number]').forEach(el => { el.value = ''; delete el.dataset.manual; });
+  document.querySelectorAll('#app-input input[type=number], #app-input input[type=text]').forEach(el => { el.value = ''; delete el.dataset.manual; });
+  document.getElementById('f_date').value = new Date().toISOString().slice(0,10);
+}
+
+// ===== History (localStorage) =====
+const STORAGE_KEY = 'bodycomp_history';
+
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+  catch { return []; }
+}
+
+function saveToHistory(d) {
+  const history = getHistory();
+  // Avoid exact duplicate (same name + date)
+  const idx = history.findIndex(h => h.name === d.name && h.date === d.date);
+  if (idx >= 0) history[idx] = d; // overwrite
+  else history.push(d);
+  // Sort by date desc
+  history.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+}
+
+function deleteFromHistory(name, date) {
+  if (!confirm(`${name}（${date}）のデータを削除しますか？`)) return;
+  let history = getHistory().filter(h => !(h.name === name && h.date === date));
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+  renderHistory();
+}
+
+function clearHistory() {
+  if (!confirm('全ての測定履歴を削除しますか？\nこの操作は取り消せません。')) return;
+  localStorage.removeItem(STORAGE_KEY);
+  renderHistory();
+}
+
+function loadFromHistory(name, date) {
+  const rec = getHistory().find(h => h.name === name && h.date === date);
+  if (!rec) return;
+  const map = {
+    name:'f_name', date:'f_date', gender:'f_gender', age:'f_age', height:'f_height',
+    weight:'f_weight', bodyFatPct:'f_bodyFatPct', fatMass:'f_fatMass', leanMass:'f_leanMass',
+    muscleMass:'f_muscleMass', musclePct:'f_musclePct', waterMass:'f_waterMass', waterPct:'f_waterPct',
+    boneMass:'f_boneMass', bmr:'f_bmr', visceralFat:'f_visceralFat', bmi:'f_bmi'
+  };
+  for (const [key, fid] of Object.entries(map)) {
+    const el = document.getElementById(fid);
+    if (el && rec[key] != null) el.value = rec[key];
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function getPrevRecord(name, date) {
+  const history = getHistory();
+  // Find the most recent record for the same person BEFORE this date
+  return history.find(h => h.name === name && h.date < date) || null;
+}
+
+function renderHistory() {
+  const history = getHistory();
+  const body = document.getElementById('historyBody');
+  if (!history.length) {
+    body.innerHTML = '<div class="history-empty">まだ測定データがありません。<br>レポート生成時に自動保存されます。</div>';
+    return;
+  }
+  // Group by name
+  const grouped = {};
+  history.forEach(h => {
+    if (!grouped[h.name||'(名前なし)']) grouped[h.name||'(名前なし)'] = [];
+    grouped[h.name||'(名前なし)'].push(h);
+  });
+
+  let html = '';
+  for (const [name, records] of Object.entries(grouped)) {
+    html += `<div style="margin-bottom:12px;"><div style="font-size:13px;font-weight:700;color:var(--primary);margin-bottom:4px;">👤 ${name}（${records.length}件）</div>`;
+    html += '<table class="history-table"><thead><tr><th>測定日</th><th>体重</th><th>体脂肪率</th><th>筋肉量</th><th>BMI</th><th>内臓脂肪</th><th>基礎代謝</th><th></th></tr></thead><tbody>';
+    records.forEach((r, i) => {
+      const prev = records[i + 1]; // next in array = previous in time (sorted desc)
+      const dw = prev ? deltaHtml(r.weight, prev.weight, 'lower') : '';
+      const df = prev ? deltaHtml(r.bodyFatPct, prev.bodyFatPct, 'lower') : '';
+      const dm = prev ? deltaHtml(r.muscleMass, prev.muscleMass, 'higher') : '';
+      const db = prev ? deltaHtml(r.bmi, prev.bmi, 'lower') : '';
+      const dv = prev ? deltaHtml(r.visceralFat, prev.visceralFat, 'lower') : '';
+      const dbmr = prev ? deltaHtml(r.bmr, prev.bmr, 'higher') : '';
+      html += `<tr>
+        <td>${r.date || '-'}</td>
+        <td>${r.weight || '-'} ${dw}</td>
+        <td>${r.bodyFatPct || '-'}% ${df}</td>
+        <td>${r.muscleMass || '-'} ${dm}</td>
+        <td>${r.bmi || '-'} ${db}</td>
+        <td>${r.visceralFat ?? '-'} ${dv}</td>
+        <td>${r.bmr || '-'} ${dbmr}</td>
+        <td>
+          <button class="load-btn" onclick="loadFromHistory('${esc(r.name)}','${r.date}')">読込</button>
+          <button class="btn-danger-sm" onclick="deleteFromHistory('${esc(r.name)}','${r.date}')">×</button>
+        </td>
+      </tr>`;
+    });
+    html += '</tbody></table></div>';
+  }
+  body.innerHTML = html;
+}
+
+function deltaHtml(current, prev, goodDir) {
+  if (current == null || prev == null) return '';
+  const diff = current - prev;
+  if (Math.abs(diff) < 0.05) return '<span class="delta delta-neutral">→</span>';
+  const sign = diff > 0 ? '+' : '';
+  const isGood = (goodDir === 'higher' && diff > 0) || (goodDir === 'lower' && diff < 0);
+  const cls = isGood ? 'delta-down' : 'delta-up'; // green/red naming
+  return `<span class="delta ${cls}">${sign}${diff.toFixed(1)}</span>`;
+}
+
+function esc(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+// ===== CSV Export =====
+function exportCSV() {
+  const history = getHistory();
+  if (!history.length) { alert('エクスポートするデータがありません。'); return; }
+
+  const headers = ['氏名','測定日','性別','年齢','身長(cm)','体重(kg)','体脂肪率(%)','脂肪量(kg)','除脂肪量(kg)','筋肉量(kg)','筋肉率(%)','体水分量(kg)','体水分率(%)','推定骨量(kg)','基礎代謝量(kcal)','内臓脂肪レベル','BMI'];
+  const keys = ['name','date','gender','age','height','weight','bodyFatPct','fatMass','leanMass','muscleMass','musclePct','waterMass','waterPct','boneMass','bmr','visceralFat','bmi'];
+
+  // BOM for Excel UTF-8
+  let csv = '\uFEFF' + headers.join(',') + '\n';
+  history.forEach(r => {
+    csv += keys.map(k => {
+      let v = r[k] ?? '';
+      if (k === 'gender') v = v === 'male' ? '男性' : v === 'female' ? '女性' : v;
+      if (typeof v === 'string' && v.includes(',')) v = `"${v}"`;
+      return v;
+    }).join(',') + '\n';
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `体組成データ_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ===== Read Form =====
 function readForm() {
   const d = {
+    name: sf('f_name'), date: sf('f_date'),
     gender: document.getElementById('f_gender').value,
     age: pf('f_age'), height: pf('f_height'), weight: pf('f_weight'),
     bodyFatPct: pf('f_bodyFatPct'), fatMass: pf('f_fatMass'), leanMass: pf('f_leanMass'),
@@ -296,6 +495,13 @@ function generateReport() {
   if (err) { msgEl.textContent = err; msgEl.style.display = 'block'; return; }
   msgEl.style.display = 'none';
 
+  // Save to history
+  saveToHistory(d);
+  renderHistory();
+
+  // Get previous record for comparison
+  const prev = getPrevRecord(d.name, d.date);
+
   const s = getStandards(d.gender, d.age);
   const gL = d.gender==='male'?'男性':'女性';
   const fatJ = judgeFat(d.bodyFatPct||0,s.fatRanges);
@@ -317,13 +523,40 @@ function generateReport() {
     {l:fgp(s.fatRanges[3]),w:100-fgp(s.fatRanges[3]),c:'#e57373'},
   ];
 
-  // Visceral fat display
   const vfDisplay = d.visceralFat != null ? d.visceralFat : '-';
   const vfBadge = d.visceralFat != null ? `<span class="r-badge ${vfJ.cls}">${vfJ.text}</span>` : '<span class="r-badge bg-low">未入力</span>';
 
+  // Build previous comparison HTML
+  let prevHtml = '';
+  if (prev) {
+    const compItems = [
+      {label:'体重', cur:d.weight, pre:prev.weight, unit:'kg', good:'lower'},
+      {label:'体脂肪率', cur:d.bodyFatPct, pre:prev.bodyFatPct, unit:'%', good:'lower'},
+      {label:'筋肉量', cur:d.muscleMass, pre:prev.muscleMass, unit:'kg', good:'higher'},
+      {label:'BMI', cur:d.bmi, pre:prev.bmi, unit:'', good:'lower'},
+      {label:'内臓脂肪', cur:d.visceralFat, pre:prev.visceralFat, unit:'', good:'lower'},
+      {label:'基礎代謝', cur:d.bmr, pre:prev.bmr, unit:'kcal', good:'higher'},
+      {label:'体水分率', cur:d.waterPct, pre:prev.waterPct, unit:'%', good:'higher'},
+    ];
+    prevHtml = `<div class="r-prev-compare"><h4>📊 前回比較（前回: ${prev.date}）</h4><table>
+      <tr>${compItems.map(c=>`<th>${c.label}</th>`).join('')}</tr>
+      <tr>${compItems.map(c=>{
+        if(c.cur==null||c.pre==null) return '<td>-</td>';
+        const diff=c.cur-c.pre;
+        const sign=diff>0?'+':'';
+        const isGood=(c.good==='higher'&&diff>0)||(c.good==='lower'&&diff<0);
+        const color=Math.abs(diff)<0.05?'#888':isGood?'var(--green)':'var(--red)';
+        const arrow=Math.abs(diff)<0.05?'→':diff>0?'↑':'↓';
+        return `<td>${c.cur}${c.unit} <span style="color:${color};font-weight:700;">${arrow}${sign}${diff.toFixed(1)}</span></td>`;
+      }).join('')}</tr>
+    </table></div>`;
+  }
+
   const html = `
-    <div class="r-header"><h1>体組成分析レポート</h1><div class="meta">測定モード：スタンダード<br>基準：タニタ体組成計判定基準</div></div>
+    <div class="r-header"><h1>体組成分析レポート</h1><div class="meta">${d.name?`<strong>${d.name}</strong> 様<br>`:''}測定日: ${d.date||'-'}<br>基準：タニタ体組成計判定基準</div></div>
     <div class="r-profile">
+      ${d.name?`<div class="item"><span class="lbl">氏名:</span><span class="val">${d.name}</span></div>`:''}
+      <div class="item"><span class="lbl">測定日:</span><span class="val">${d.date||'-'}</span></div>
       <div class="item"><span class="lbl">性別:</span><span class="val">${gL}</span></div>
       <div class="item"><span class="lbl">年齢:</span><span class="val">${d.age}歳</span></div>
       <div class="item"><span class="lbl">身長:</span><span class="val">${d.height} cm</span></div>
@@ -389,7 +622,7 @@ function generateReport() {
       </div>
       <div class="r-card"><div class="r-card-title">体組成の割合（%）</div><div style="height:110px;"><canvas id="rc_pie"></canvas></div></div>
     </div>
-    <div class="r-summary"><h3>総合コメント</h3>${buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL)}</div>
+    <div class="r-summary"><h3>総合コメント</h3>${buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL)}${prevHtml}</div>
     <div class="r-footer">出典: タニタ体組成計判定基準（tanita.co.jp）｜レポート生成日: ${new Date().toLocaleDateString('ja-JP')}</div>`;
 
   document.getElementById('reportBody').innerHTML = html;
@@ -399,7 +632,6 @@ function generateReport() {
 }
 
 function buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL) {
-  // --- Diagnosis section (2-column grid) ---
   const diag = [];
   if (d.bmi && d.bodyFatPct) {
     diag.push(`<strong>BMI ${d.bmi} / 体脂肪率 ${d.bodyFatPct}%</strong> — ${bmiJ.text}・${fatJ.text}の範囲です。`);
@@ -429,10 +661,7 @@ function buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL) {
     ? '<div class="comment-grid">' + diag.map(t => `<div class="comment-item">${t}</div>`).join('') + '</div>'
     : '';
 
-  // --- Action plan section ---
   const actions = [];
-
-  // Exercise plan
   const exItems = [];
   if (d.visceralFat >= 8 || (d.bodyFatPct && d.bodyFatPct >= s.fatRanges[2])) {
     exItems.push('ウォーキング・ジョギング等の有酸素運動を週3〜5回・各30分以上');
@@ -446,7 +675,6 @@ function buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL) {
   }
   actions.push({ label: '運動', body: exItems.join('。') + '。' });
 
-  // Diet plan
   const dietItems = [];
   if (d.bodyFatPct && d.bodyFatPct >= s.fatRanges[2]) {
     const tdee = Math.round((d.bmr || s.bmrAvg) * 1.5);
@@ -458,7 +686,6 @@ function buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL) {
   dietItems.push(`タンパク質は体重×1.2〜1.5g（${Math.round(d.weight*1.2)}〜${Math.round(d.weight*1.5)}g/日）を目標に摂取`);
   actions.push({ label: '食事', body: dietItems.join('。') + '。' });
 
-  // Lifestyle plan
   const lifeItems = [];
   if (d.waterPct && d.waterPct <= s.waterRange[0] + 2) {
     lifeItems.push(`1日あたり${d.weight ? Math.round(d.weight * 35 / 100) * 100 / 1000 : 2}L以上の水分を目標にこまめに補給`);
@@ -474,7 +701,6 @@ function buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL) {
       ${actions.map(a => `<div class="action-card"><div class="ac-label">${a.label}</div><div class="ac-body">${a.body}</div></div>`).join('')}
     </div>`;
 
-  // --- Overall score ---
   let score = 0; let total = 0;
   if (d.bmi) { total++; if (d.bmi >= 18.5 && d.bmi < 25) score++; }
   if (d.bodyFatPct) { total++; if (d.bodyFatPct >= s.fatRanges[0] && d.bodyFatPct < s.fatRanges[2]) score++; }
@@ -559,7 +785,11 @@ function renderCharts(d, s, gL, boneT) {
 function backToInput() {
   document.getElementById('app-report').style.display = 'none';
   document.getElementById('app-input').style.display = 'block';
+  renderHistory();
 }
+
+// Init
+renderHistory();
 </script>
 </body>
 </html>
