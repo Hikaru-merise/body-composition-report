@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>体組成レポート生成アプリ</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+  :root { --primary: #1a73e8; --green: #1e8e3e; --orange: #e37400; --red: #d93025; --bg: #f8f9fa; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Segoe UI','Meiryo','Hiragino Sans',sans-serif; background: var(--bg); color: #333; }
+
+  #app-input { max-width: 720px; margin: 30px auto; padding: 20px; }
+  .app-title { text-align: center; font-size: 22px; color: var(--primary); margin-bottom: 4px; }
+  .app-subtitle { text-align: center; font-size: 13px; color: #888; margin-bottom: 24px; }
+
+  .photo-strip {
+    display: flex; align-items: center; gap: 12px; background: #f0f4ff; border-radius: 10px;
+    padding: 12px 16px; margin-bottom: 20px; cursor: pointer; border: 2px dashed #c5d5f5; transition: all .2s;
+  }
+  .photo-strip:hover { border-color: var(--primary); background: #e8efff; }
+  .photo-strip input { display: none; }
+  .photo-strip .icon { font-size: 28px; flex-shrink: 0; }
+  .photo-strip .text { font-size: 13px; color: #555; }
+  .photo-strip .text small { display: block; color: #999; font-size: 11px; margin-top: 2px; }
+  .photo-strip img { max-height: 80px; border-radius: 6px; margin-left: auto; display: none; }
+
+  .section-label {
+    font-size: 14px; font-weight: 700; color: var(--primary);
+    border-left: 4px solid var(--primary); padding-left: 10px; margin: 20px 0 12px;
+  }
+
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px 16px; }
+  .form-grid.cols2 { grid-template-columns: 1fr 1fr; }
+  .field label { font-size: 11px; color: #777; display: block; margin-bottom: 3px; }
+  .field input, .field select {
+    width: 100%; padding: 10px 12px; border: 1px solid #d0d5dd; border-radius: 8px;
+    font-size: 16px; font-family: inherit; background: #fff; transition: border .2s;
+  }
+  .field input:focus, .field select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,115,232,.12); }
+  .field input::placeholder { color: #bbb; font-size: 13px; }
+  .field .unit { font-size: 11px; color: #999; }
+
+  .btn-row { display: flex; gap: 12px; justify-content: center; margin-top: 28px; }
+  .btn {
+    padding: 14px 40px; border: none; border-radius: 10px; font-size: 16px;
+    font-weight: 600; cursor: pointer; transition: all .2s;
+  }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: #1565c0; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(26,115,232,.3); }
+  .btn-primary:disabled { background: #aaa; cursor: not-allowed; transform: none; box-shadow: none; }
+  .btn-secondary { background: #e8e8e8; color: #555; }
+  .btn-secondary:hover { background: #ddd; }
+  .btn-sm { padding: 6px 14px; font-size: 12px; border-radius: 6px; }
+
+  .sample-bar { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; font-size: 12px; color: #888; }
+  .sample-bar button { font-size: 11px; padding: 4px 10px; border: 1px solid #c5d5f5; border-radius: 6px; background: #f0f4ff; color: var(--primary); cursor: pointer; }
+  .sample-bar button:hover { background: #dce8ff; }
+
+  .validation-msg { font-size: 11px; color: var(--red); margin-top: 6px; display: none; text-align: center; }
+
+  /* ===== Report ===== */
+  #app-report { display: none; }
+  @media print {
+    #app-input { display: none !important; }
+    #app-report { display: block !important; }
+    body { background: #fff; }
+    .back-btn-area { display: none !important; }
+  }
+  .report { width: 210mm; min-height: 297mm; margin: 0 auto; padding: 8mm 10mm; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  @media screen { .report { box-shadow: 0 0 20px rgba(0,0,0,.1); margin-top: 20px; margin-bottom: 20px; } }
+  .r-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 3px solid var(--primary); padding-bottom: 6px; margin-bottom: 8px; }
+  .r-header h1 { font-size: 20px; color: var(--primary); letter-spacing: 2px; }
+  .r-header .meta { font-size: 11px; color: #666; text-align: right; line-height: 1.5; }
+  .r-profile { display: flex; gap: 16px; background: #f0f4ff; border-radius: 8px; padding: 8px 16px; margin-bottom: 10px; font-size: 12px; flex-wrap: wrap; }
+  .r-profile .item { display: flex; align-items: center; gap: 4px; }
+  .r-profile .lbl { color: #666; }
+  .r-profile .val { font-weight: 700; color: var(--primary); }
+  .r-section { font-size: 13px; font-weight: 700; color: var(--primary); border-left: 4px solid var(--primary); padding-left: 8px; margin: 10px 0 6px; }
+  .r-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .r-grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .r-card { background: #fafbff; border: 1px solid #e0e6f0; border-radius: 8px; padding: 8px 10px; }
+  .r-card-title { font-size: 11px; color: #888; margin-bottom: 2px; }
+  .r-card-value { font-size: 22px; font-weight: 700; color: #222; }
+  .r-card-value .unit { font-size: 12px; color: #888; font-weight: 400; }
+  .r-badge { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; margin-top: 2px; }
+  .bg-good { background: #e6f4ea; color: var(--green); }
+  .bg-warn { background: #fef7e0; color: var(--orange); }
+  .bg-danger { background: #fce8e6; color: var(--red); }
+  .bg-low { background: #e8f0fe; color: #1967d2; }
+  .r-gauge { position: relative; height: 18px; background: #eee; border-radius: 9px; overflow: hidden; margin-top: 4px; }
+  .r-gauge-seg { position: absolute; top: 0; height: 100%; }
+  .r-gauge-mk { position: absolute; top: -3px; width: 3px; height: 24px; background: #333; border-radius: 1px; z-index: 10; transform: translateX(-50%); }
+  .r-gauge-labels { display: flex; justify-content: space-between; font-size: 9px; color: #999; margin-top: 1px; }
+  .r-chart { height: 140px; }
+  .r-summary { background: linear-gradient(135deg,#f0f4ff,#e8f0fe); border: 1px solid #c5d5f5; border-radius: 8px; padding: 10px 14px; margin-top: 10px; font-size: 10.5px; line-height: 1.6; }
+  .r-summary h3 { font-size: 12px; color: var(--primary); margin-bottom: 4px; }
+  .r-summary .comment-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 14px; margin-bottom: 6px; }
+  .r-summary .comment-item { padding: 3px 0; }
+  .r-summary .action-title { font-size: 11px; font-weight: 700; color: #1565c0; margin: 6px 0 3px; border-top: 1px solid #c5d5f5; padding-top: 5px; }
+  .r-summary .action-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px 10px; }
+  .r-summary .action-card { background: #fff; border: 1px solid #d6e4f5; border-radius: 6px; padding: 4px 8px; }
+  .r-summary .action-card .ac-label { font-size: 10px; font-weight: 700; color: var(--primary); }
+  .r-summary .action-card .ac-body { font-size: 9.5px; color: #555; line-height: 1.5; }
+  .r-footer { margin-top: 8px; text-align: center; font-size: 9px; color: #bbb; border-top: 1px solid #eee; padding-top: 4px; }
+  .back-btn-area { text-align: center; margin: 20px 0; }
+</style>
+</head>
+<body>
+
+<!-- ===== Input Screen ===== -->
+<div id="app-input">
+  <h1 class="app-title">体組成レポート生成</h1>
+  <p class="app-subtitle">測定結果を入力してレポートを生成します</p>
+
+  <!-- Photo reference (optional) -->
+  <div class="photo-strip" id="photoStrip">
+    <span class="icon">📷</span>
+    <div class="text">
+      参考用に測定用紙の写真を添付（任意）
+      <small>写真はレポートには含まれません。入力時の参照用です</small>
+    </div>
+    <img id="refPhoto" alt="">
+    <input type="file" id="photoInput" accept="image/*">
+  </div>
+
+  <!-- Sample data -->
+  <div class="sample-bar">
+    <span>入力補助:</span>
+    <button onclick="loadSample()">サンプルデータを入力</button>
+    <button onclick="clearAll()">全てクリア</button>
+  </div>
+
+  <!-- Profile section -->
+  <div class="section-label">プロフィール</div>
+  <div class="form-grid cols2">
+    <div class="field"><label>性別</label><select id="f_gender"><option value="male">男性</option><option value="female">女性</option></select></div>
+    <div class="field"><label>年齢 <span class="unit">歳</span></label><input type="number" id="f_age" placeholder="例: 39"></div>
+    <div class="field"><label>身長 <span class="unit">cm</span></label><input type="number" step="0.1" id="f_height" placeholder="例: 167.0"></div>
+  </div>
+
+  <!-- Measurement results -->
+  <div class="section-label">測定結果</div>
+  <div class="form-grid">
+    <div class="field"><label>体重 <span class="unit">kg</span></label><input type="number" step="0.1" id="f_weight" placeholder="64.4"></div>
+    <div class="field"><label>体脂肪率 <span class="unit">%</span></label><input type="number" step="0.1" id="f_bodyFatPct" placeholder="18.8"></div>
+    <div class="field"><label>脂肪量 <span class="unit">kg</span></label><input type="number" step="0.1" id="f_fatMass" placeholder="12.1"></div>
+    <div class="field"><label>除脂肪量 <span class="unit">kg</span></label><input type="number" step="0.1" id="f_leanMass" placeholder="52.3"></div>
+    <div class="field"><label>筋肉量 <span class="unit">kg</span></label><input type="number" step="0.1" id="f_muscleMass" placeholder="49.6"></div>
+    <div class="field"><label>筋肉率 <span class="unit">%</span></label><input type="number" step="0.1" id="f_musclePct" placeholder="77.0"></div>
+    <div class="field"><label>体水分量 <span class="unit">kg</span></label><input type="number" step="0.1" id="f_waterMass" placeholder="35.5"></div>
+    <div class="field"><label>体水分率 <span class="unit">%</span></label><input type="number" step="0.1" id="f_waterPct" placeholder="55.1"></div>
+    <div class="field"><label>推定骨量 <span class="unit">kg</span></label><input type="number" step="0.1" id="f_boneMass" placeholder="2.7"></div>
+    <div class="field"><label>基礎代謝量 <span class="unit">kcal</span></label><input type="number" id="f_bmr" placeholder="1442"></div>
+    <div class="field"><label>内臓脂肪レベル</label><input type="number" id="f_visceralFat" placeholder="9"></div>
+    <div class="field"><label>BMI</label><input type="number" step="0.1" id="f_bmi" placeholder="自動計算"></div>
+  </div>
+
+  <div class="validation-msg" id="validationMsg"></div>
+
+  <div class="btn-row">
+    <button class="btn btn-primary" onclick="generateReport()">レポートを生成</button>
+  </div>
+</div>
+
+<!-- ===== Report Screen ===== -->
+<div id="app-report">
+  <div class="back-btn-area">
+    <button class="btn btn-secondary" onclick="backToInput()">← 入力に戻る</button>
+    <button class="btn btn-primary" onclick="window.print()">印刷 / PDF保存</button>
+  </div>
+  <div class="report" id="reportBody"></div>
+  <div class="back-btn-area">
+    <button class="btn btn-secondary" onclick="backToInput()">← 入力に戻る</button>
+  </div>
+</div>
+
+<script>
+// ===== Photo reference =====
+const photoStrip = document.getElementById('photoStrip');
+const photoInput = document.getElementById('photoInput');
+const refPhoto = document.getElementById('refPhoto');
+photoStrip.addEventListener('click', () => photoInput.click());
+photoInput.addEventListener('change', e => {
+  if (e.target.files.length) {
+    refPhoto.src = URL.createObjectURL(e.target.files[0]);
+    refPhoto.style.display = 'block';
+  }
+});
+
+// ===== Auto-compute =====
+['f_weight','f_height','f_bodyFatPct','f_fatMass'].forEach(id => {
+  document.getElementById(id).addEventListener('input', autoCompute);
+});
+
+function autoCompute() {
+  const w = pf('f_weight'), h = pf('f_height'), fat = pf('f_bodyFatPct'), fatM = pf('f_fatMass');
+
+  // BMI
+  if (w && h) {
+    const bmi = (w / (h/100)**2).toFixed(1);
+    const el = document.getElementById('f_bmi');
+    if (!el.dataset.manual) el.value = bmi;
+  }
+
+  // Fat mass from %
+  if (w && fat && !pf('f_fatMass')) {
+    document.getElementById('f_fatMass').value = (w * fat / 100).toFixed(1);
+  }
+
+  // Lean mass
+  const currentFatM = pf('f_fatMass');
+  if (w && currentFatM) {
+    const el = document.getElementById('f_leanMass');
+    if (!el.dataset.manual) el.value = (w - currentFatM).toFixed(1);
+  }
+}
+
+// Mark field as manually edited
+document.querySelectorAll('#app-input input[type=number]').forEach(el => {
+  el.addEventListener('input', function() {
+    if (this.id === 'f_bmi' || this.id === 'f_leanMass') this.dataset.manual = '1';
+  });
+});
+
+function pf(id) { const v = document.getElementById(id).value; return v ? parseFloat(v) : null; }
+
+// ===== Sample Data =====
+function loadSample() {
+  const sample = { f_gender:'male', f_age:39, f_height:167.0, f_weight:64.4, f_bodyFatPct:18.8,
+    f_fatMass:12.1, f_leanMass:52.3, f_muscleMass:49.6, f_musclePct:77.0,
+    f_waterMass:35.5, f_waterPct:55.1, f_boneMass:2.7, f_bmr:1442, f_visceralFat:9, f_bmi:23.1 };
+  for (const [id, val] of Object.entries(sample)) {
+    const el = document.getElementById(id);
+    if (el.tagName === 'SELECT') el.value = val;
+    else el.value = val;
+  }
+}
+
+function clearAll() {
+  document.querySelectorAll('#app-input input[type=number]').forEach(el => { el.value = ''; delete el.dataset.manual; });
+}
+
+// ===== Read Form =====
+function readForm() {
+  const d = {
+    gender: document.getElementById('f_gender').value,
+    age: pf('f_age'), height: pf('f_height'), weight: pf('f_weight'),
+    bodyFatPct: pf('f_bodyFatPct'), fatMass: pf('f_fatMass'), leanMass: pf('f_leanMass'),
+    muscleMass: pf('f_muscleMass'), musclePct: pf('f_musclePct'),
+    waterMass: pf('f_waterMass'), waterPct: pf('f_waterPct'),
+    boneMass: pf('f_boneMass'), bmr: pf('f_bmr'), visceralFat: pf('f_visceralFat'),
+    bmi: pf('f_bmi')
+  };
+  if (d.height) d.stdWeight = parseFloat(((d.height / 100) ** 2 * 22).toFixed(1));
+  if (d.weight && d.stdWeight) d.obesityPct = parseFloat(((d.weight - d.stdWeight) / d.stdWeight * 100).toFixed(1));
+  if (d.weight && d.height && !d.bmi) d.bmi = parseFloat((d.weight / (d.height / 100) ** 2).toFixed(1));
+  if (d.weight && d.bodyFatPct && !d.fatMass) d.fatMass = parseFloat((d.weight * d.bodyFatPct / 100).toFixed(1));
+  if (d.weight && d.fatMass && !d.leanMass) d.leanMass = parseFloat((d.weight - d.fatMass).toFixed(1));
+  return d;
+}
+
+// ===== Standards =====
+function getStandards(gender, age) {
+  const m = gender === 'male';
+  let fatRanges;
+  if (m) { fatRanges = age<18?[7,11,17,24]:age<30?[10,16,21,26]:age<40?[11,17,22,27]:age<50?[12,18,23,28]:age<60?[13,19,24,29]:[14,20,25,30]; }
+  else { fatRanges = age<18?[14,19,25,31]:age<30?[20,25,30,35]:age<40?[21,26,31,36]:age<50?[22,27,32,37]:age<60?[23,28,33,38]:[24,29,34,39]; }
+  const bmrAvg = m ? (age<18?1610:age<50?1530:age<70?1400:1290) : (age<18?1310:age<30?1180:age<50?1160:age<70?1110:1020);
+  const waterRange = m ? [55,65] : [45,60];
+  return { fatRanges, bmrAvg, waterRange };
+}
+
+function judgeFat(p, r) { return p<r[0]?{text:'やせ',cls:'bg-low'}:p<r[1]?{text:'-標準',cls:'bg-good'}:p<r[2]?{text:'+標準',cls:'bg-good'}:p<r[3]?{text:'軽肥満',cls:'bg-warn'}:{text:'肥満',cls:'bg-danger'}; }
+function judgeBmi(b) { return b<18.5?{text:'やせ',cls:'bg-low'}:b<25?{text:'標準',cls:'bg-good'}:b<30?{text:'肥満(1度)',cls:'bg-warn'}:{text:'肥満(2度以上)',cls:'bg-danger'}; }
+function judgeVF(v) { return v<=9?{text:'標準',cls:'bg-good'}:v<=14?{text:'やや高い',cls:'bg-warn'}:{text:'高い',cls:'bg-danger'}; }
+function judgeBmr(v, a) { const r=v/a; return r>=.98?{text:'標準以上',cls:'bg-good'}:r>=.9?{text:'やや少ない',cls:'bg-warn'}:{text:'少ない',cls:'bg-danger'}; }
+function judgeWater(p, r) { return p<r[0]?{text:'低い',cls:'bg-warn'}:p<=r[1]?{text:'適正',cls:'bg-good'}:{text:'高い',cls:'bg-low'}; }
+
+// ===== Validation =====
+function validate(d) {
+  const missing = [];
+  if (!d.age) missing.push('年齢');
+  if (!d.height) missing.push('身長');
+  if (!d.weight) missing.push('体重');
+  if (!d.bodyFatPct) missing.push('体脂肪率');
+  if (missing.length) return `必須項目が未入力です: ${missing.join('、')}`;
+  return null;
+}
+
+// ===== Generate Report =====
+function generateReport() {
+  const d = readForm();
+  const err = validate(d);
+  const msgEl = document.getElementById('validationMsg');
+  if (err) { msgEl.textContent = err; msgEl.style.display = 'block'; return; }
+  msgEl.style.display = 'none';
+
+  const s = getStandards(d.gender, d.age);
+  const gL = d.gender==='male'?'男性':'女性';
+  const fatJ = judgeFat(d.bodyFatPct||0,s.fatRanges);
+  const bmiJ = judgeBmi(d.bmi||0);
+  const vfJ = judgeVF(d.visceralFat||0);
+  const bmrJ = judgeBmr(d.bmr||0,s.bmrAvg);
+  const waterJ = judgeWater(d.waterPct||0,s.waterRange);
+  const boneT = d.gender==='male'?(d.weight>=75?3.2:d.weight>=60?2.9:2.5):(d.weight>=60?2.5:d.weight>=45?2.2:1.8);
+  const boneJ = (d.boneMass||0)>=boneT*0.9?{text:'標準',cls:'bg-good'}:{text:'やや少ない',cls:'bg-warn'};
+
+  const fgp = v=>Math.min(Math.max(v/40*100,0),100);
+  const bgp = v=>Math.min(Math.max((v-15)/20*100,0),100);
+  const vgp = v=>Math.min(Math.max(v/20*100,0),100);
+  const fs=[
+    {l:0,w:fgp(s.fatRanges[0]),c:'#64b5f6'},
+    {l:fgp(s.fatRanges[0]),w:fgp(s.fatRanges[1])-fgp(s.fatRanges[0]),c:'#a5d6a7'},
+    {l:fgp(s.fatRanges[1]),w:fgp(s.fatRanges[2])-fgp(s.fatRanges[1]),c:'#81c784'},
+    {l:fgp(s.fatRanges[2]),w:fgp(s.fatRanges[3])-fgp(s.fatRanges[2]),c:'#ffb74d'},
+    {l:fgp(s.fatRanges[3]),w:100-fgp(s.fatRanges[3]),c:'#e57373'},
+  ];
+
+  // Visceral fat display
+  const vfDisplay = d.visceralFat != null ? d.visceralFat : '-';
+  const vfBadge = d.visceralFat != null ? `<span class="r-badge ${vfJ.cls}">${vfJ.text}</span>` : '<span class="r-badge bg-low">未入力</span>';
+
+  const html = `
+    <div class="r-header"><h1>体組成分析レポート</h1><div class="meta">測定モード：スタンダード<br>基準：タニタ体組成計判定基準</div></div>
+    <div class="r-profile">
+      <div class="item"><span class="lbl">性別:</span><span class="val">${gL}</span></div>
+      <div class="item"><span class="lbl">年齢:</span><span class="val">${d.age}歳</span></div>
+      <div class="item"><span class="lbl">身長:</span><span class="val">${d.height} cm</span></div>
+      <div class="item"><span class="lbl">体重:</span><span class="val">${d.weight} kg</span></div>
+      <div class="item"><span class="lbl">標準体重:</span><span class="val">${d.stdWeight||'-'} kg</span></div>
+      <div class="item"><span class="lbl">肥満度:</span><span class="val">${d.obesityPct!=null?(d.obesityPct>=0?'+':'')+d.obesityPct:'-'}%</span></div>
+    </div>
+    <div class="r-section">主要指標</div>
+    <div class="r-grid3">
+      <div class="r-card">
+        <div class="r-card-title">BMI</div><div class="r-card-value">${d.bmi||'-'}</div>
+        <span class="r-badge ${bmiJ.cls}">${bmiJ.text}</span>
+        <div class="r-gauge">
+          <div class="r-gauge-seg" style="left:0;width:30.8%;background:#64b5f6;"></div>
+          <div class="r-gauge-seg" style="left:30.8%;width:35.9%;background:#81c784;"></div>
+          <div class="r-gauge-seg" style="left:66.7%;width:17.9%;background:#ffb74d;"></div>
+          <div class="r-gauge-seg" style="left:84.6%;width:15.4%;background:#e57373;"></div>
+          <div class="r-gauge-mk" style="left:${bgp(d.bmi||0)}%;"></div>
+        </div>
+        <div class="r-gauge-labels"><span>15</span><span>18.5</span><span>25</span><span>30</span><span>35</span></div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">体脂肪率</div><div class="r-card-value">${d.bodyFatPct||'-'} <span class="unit">%</span></div>
+        <span class="r-badge ${fatJ.cls}">${fatJ.text}</span>
+        <div class="r-gauge">
+          ${fs.map(s=>`<div class="r-gauge-seg" style="left:${s.l}%;width:${s.w}%;background:${s.c};"></div>`).join('')}
+          <div class="r-gauge-mk" style="left:${fgp(d.bodyFatPct||0)}%;"></div>
+        </div>
+        <div class="r-gauge-labels"><span>0</span><span>${s.fatRanges[0]}</span><span>${s.fatRanges[1]}</span><span>${s.fatRanges[2]}</span><span>${s.fatRanges[3]}</span><span>40</span></div>
+      </div>
+      <div class="r-card">
+        <div class="r-card-title">内臓脂肪レベル</div><div class="r-card-value">${vfDisplay}</div>
+        ${vfBadge}
+        <div class="r-gauge">
+          <div class="r-gauge-seg" style="left:0;width:45%;background:#81c784;"></div>
+          <div class="r-gauge-seg" style="left:45%;width:25%;background:#ffb74d;"></div>
+          <div class="r-gauge-seg" style="left:70%;width:30%;background:#e57373;"></div>
+          <div class="r-gauge-mk" style="left:${vgp(d.visceralFat||0)}%;"></div>
+        </div>
+        <div class="r-gauge-labels"><span>1</span><span>9</span><span>14</span><span>20</span></div>
+      </div>
+    </div>
+    <div class="r-section">体組成の内訳とバランス</div>
+    <div class="r-grid2">
+      <div class="r-card"><div class="r-card-title">体組成の構成（kg）</div><div class="r-chart"><canvas id="rc_comp"></canvas></div></div>
+      <div class="r-card"><div class="r-card-title">総合バランス（対標準比）</div><div class="r-chart"><canvas id="rc_radar"></canvas></div></div>
+    </div>
+    <div class="r-section">詳細データ</div>
+    <div class="r-grid3">
+      <div class="r-card"><div class="r-card-title">筋肉量</div><div class="r-card-value">${d.muscleMass||'-'} <span class="unit">kg</span></div><span class="r-badge bg-good">筋肉率: ${d.musclePct||'-'}%</span></div>
+      <div class="r-card"><div class="r-card-title">体水分率</div><div class="r-card-value">${d.waterPct||'-'} <span class="unit">%</span></div><span class="r-badge ${waterJ.cls}">${waterJ.text}</span><div style="font-size:10px;color:#888;margin-top:2px;">適正: ${s.waterRange[0]}〜${s.waterRange[1]}%</div></div>
+      <div class="r-card"><div class="r-card-title">推定骨量</div><div class="r-card-value">${d.boneMass||'-'} <span class="unit">kg</span></div><span class="r-badge ${boneJ.cls}">${boneJ.text}</span><div style="font-size:10px;color:#888;margin-top:2px;">目安: ${boneT} kg</div></div>
+    </div>
+    <div class="r-grid2" style="margin-top:10px;">
+      <div class="r-card">
+        <div class="r-card-title">基礎代謝量</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div><div class="r-card-value">${d.bmr?d.bmr.toLocaleString():'-'} <span class="unit">kcal</span></div>
+          <span class="r-badge ${bmrJ.cls}">${bmrJ.text}</span>
+          <div style="font-size:10px;color:#888;margin-top:2px;">同年代${gL}平均: ${s.bmrAvg.toLocaleString()} kcal</div></div>
+          <div style="flex:1;height:90px;"><canvas id="rc_bmr"></canvas></div>
+        </div>
+      </div>
+      <div class="r-card"><div class="r-card-title">体組成の割合（%）</div><div style="height:110px;"><canvas id="rc_pie"></canvas></div></div>
+    </div>
+    <div class="r-summary"><h3>総合コメント</h3>${buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL)}</div>
+    <div class="r-footer">出典: タニタ体組成計判定基準（tanita.co.jp）｜レポート生成日: ${new Date().toLocaleDateString('ja-JP')}</div>`;
+
+  document.getElementById('reportBody').innerHTML = html;
+  document.getElementById('app-input').style.display = 'none';
+  document.getElementById('app-report').style.display = 'block';
+  requestAnimationFrame(() => renderCharts(d, s, gL, boneT));
+}
+
+function buildComments(d,s,fatJ,bmiJ,vfJ,bmrJ,waterJ,gL) {
+  // --- Diagnosis section (2-column grid) ---
+  const diag = [];
+  if (d.bmi && d.bodyFatPct) {
+    diag.push(`<strong>BMI ${d.bmi} / 体脂肪率 ${d.bodyFatPct}%</strong> — ${bmiJ.text}・${fatJ.text}の範囲です。`);
+  }
+  if (d.visceralFat != null) {
+    if (d.visceralFat >= 10) diag.push(`<strong>内臓脂肪Lv.${d.visceralFat}</strong> — ${vfJ.text}。生活習慣病リスクに注意が必要です。`);
+    else if (d.visceralFat >= 8) diag.push(`<strong>内臓脂肪Lv.${d.visceralFat}</strong> — 標準内ですが上限に近く、予防的対策を推奨します。`);
+    else diag.push(`<strong>内臓脂肪Lv.${d.visceralFat}</strong> — 標準範囲内で良好です。`);
+  }
+  if (d.bmr) {
+    const diff = d.bmr - s.bmrAvg;
+    if (diff < -50) diag.push(`<strong>基礎代謝 ${d.bmr.toLocaleString()} kcal</strong> — 同年代平均を${Math.abs(Math.round(diff))} kcal下回っています。`);
+    else diag.push(`<strong>基礎代謝 ${d.bmr.toLocaleString()} kcal</strong> — 同年代平均（${s.bmrAvg.toLocaleString()}）と同等以上です。`);
+  }
+  if (d.waterPct) {
+    if (d.waterPct < s.waterRange[0]) diag.push(`<strong>体水分率 ${d.waterPct}%</strong> — 適正下限（${s.waterRange[0]}%）を下回っています。`);
+    else if (d.waterPct <= s.waterRange[0]+2) diag.push(`<strong>体水分率 ${d.waterPct}%</strong> — 適正範囲の下限付近です。`);
+    else diag.push(`<strong>体水分率 ${d.waterPct}%</strong> — 適正範囲内で良好です。`);
+  }
+  if (d.boneMass) {
+    const boneT = d.gender==='male'?(d.weight>=75?3.2:d.weight>=60?2.9:2.5):(d.weight>=60?2.5:d.weight>=45?2.2:1.8);
+    if (d.boneMass < boneT * 0.9) diag.push(`<strong>推定骨量 ${d.boneMass} kg</strong> — 目安（${boneT} kg）をやや下回っています。`);
+    else diag.push(`<strong>推定骨量 ${d.boneMass} kg</strong> — 目安値以上で良好です。`);
+  }
+
+  const diagHtml = diag.length
+    ? '<div class="comment-grid">' + diag.map(t => `<div class="comment-item">${t}</div>`).join('') + '</div>'
+    : '';
+
+  // --- Action plan section ---
+  const actions = [];
+
+  // Exercise plan
+  const exItems = [];
+  if (d.visceralFat >= 8 || (d.bodyFatPct && d.bodyFatPct >= s.fatRanges[2])) {
+    exItems.push('ウォーキング・ジョギング等の有酸素運動を週3〜5回・各30分以上');
+  } else {
+    exItems.push('現在の体脂肪率を維持するため、週2〜3回の有酸素運動を継続');
+  }
+  if (d.bmr && d.bmr < s.bmrAvg * 0.98) {
+    exItems.push('スクワット・腕立て等の筋トレを週2〜3回（基礎代謝向上）');
+  } else if (d.muscleMass) {
+    exItems.push('筋力維持のため、週2回以上のレジスタンストレーニングを推奨');
+  }
+  actions.push({ label: '運動', body: exItems.join('。') + '。' });
+
+  // Diet plan
+  const dietItems = [];
+  if (d.bodyFatPct && d.bodyFatPct >= s.fatRanges[2]) {
+    const tdee = Math.round((d.bmr || s.bmrAvg) * 1.5);
+    dietItems.push(`推定消費カロリー約${tdee} kcal/日に対し、${tdee - 300}〜${tdee - 500} kcalの摂取を目標に`);
+  } else {
+    const tdee = Math.round((d.bmr || s.bmrAvg) * 1.5);
+    dietItems.push(`推定消費カロリー約${tdee} kcal/日を目安にバランスの良い食事を維持`);
+  }
+  dietItems.push(`タンパク質は体重×1.2〜1.5g（${Math.round(d.weight*1.2)}〜${Math.round(d.weight*1.5)}g/日）を目標に摂取`);
+  actions.push({ label: '食事', body: dietItems.join('。') + '。' });
+
+  // Lifestyle plan
+  const lifeItems = [];
+  if (d.waterPct && d.waterPct <= s.waterRange[0] + 2) {
+    lifeItems.push(`1日あたり${d.weight ? Math.round(d.weight * 35 / 100) * 100 / 1000 : 2}L以上の水分を目標にこまめに補給`);
+  } else {
+    lifeItems.push('適切な水分量を維持。起床時・運動前後・入浴前後の水分補給を習慣化');
+  }
+  lifeItems.push('7〜8時間の質の良い睡眠を確保（成長ホルモン分泌による筋肉修復・脂肪燃焼促進）');
+  actions.push({ label: '生活習慣', body: lifeItems.join('。') + '。' });
+
+  const actionsHtml = `
+    <div class="action-title">改善アクションプラン</div>
+    <div class="action-grid">
+      ${actions.map(a => `<div class="action-card"><div class="ac-label">${a.label}</div><div class="ac-body">${a.body}</div></div>`).join('')}
+    </div>`;
+
+  // --- Overall score ---
+  let score = 0; let total = 0;
+  if (d.bmi) { total++; if (d.bmi >= 18.5 && d.bmi < 25) score++; }
+  if (d.bodyFatPct) { total++; if (d.bodyFatPct >= s.fatRanges[0] && d.bodyFatPct < s.fatRanges[2]) score++; }
+  if (d.visceralFat != null) { total++; if (d.visceralFat <= 9) score++; }
+  if (d.bmr) { total++; if (d.bmr >= s.bmrAvg * 0.95) score++; }
+  if (d.waterPct) { total++; if (d.waterPct >= s.waterRange[0] && d.waterPct <= s.waterRange[1]) score++; }
+  if (d.boneMass) {
+    total++;
+    const boneT2 = d.gender==='male'?(d.weight>=75?3.2:d.weight>=60?2.9:2.5):(d.weight>=60?2.5:d.weight>=45?2.2:1.8);
+    if (d.boneMass >= boneT2 * 0.9) score++;
+  }
+
+  let overallText = '';
+  if (total > 0) {
+    const pct = Math.round(score / total * 100);
+    const rating = pct >= 80 ? '良好' : pct >= 50 ? '概ね良好（一部改善推奨）' : '要改善';
+    overallText = `<div style="margin-top:5px;padding-top:4px;border-top:1px solid #c5d5f5;"><strong>総合評価: ${rating}（${score}/${total}項目が標準範囲内）</strong> — 次回測定時に変化を確認し、継続的な管理を推奨します。</div>`;
+  }
+
+  return diagHtml + actionsHtml + overallText || '十分なデータが入力されていません。';
+}
+
+function renderCharts(d, s, gL, boneT) {
+  Object.values(Chart.instances).forEach(c => c.destroy());
+  const C = {fat:'#ef5350',muscle:'#42a5f5',bone:'#ab47bc',green:'#66bb6a',orange:'#ffa726',blue:'#42a5f5'};
+
+  new Chart(document.getElementById('rc_comp'), {
+    type:'bar', data:{labels:['体組成'], datasets:[
+      {label:'脂肪量',data:[d.fatMass||0],backgroundColor:C.fat},
+      {label:'筋肉量',data:[d.muscleMass||0],backgroundColor:C.muscle},
+      {label:'推定骨量',data:[d.boneMass||0],backgroundColor:C.bone},
+    ]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      scales:{x:{stacked:true,max:(d.weight||80)+5,ticks:{font:{size:9}},title:{display:true,text:'kg',font:{size:10}}},y:{stacked:true,display:false}},
+      plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12,padding:8}}}}
+  });
+
+  const wm=(s.waterRange[0]+s.waterRange[1])/2;
+  new Chart(document.getElementById('rc_radar'), {
+    type:'radar', data:{
+      labels:['BMI','体脂肪率','筋肉量','体水分率','骨量','基礎代謝'],
+      datasets:[{
+        label:'あなた（対標準比%）',
+        data:[
+          Math.round((d.bmi||22)/22*100),
+          Math.round((1-((d.bodyFatPct||15)-(s.fatRanges[0]+s.fatRanges[1])/2)/20)*100),
+          Math.round(((d.muscleMass||0)/((d.weight||65)*0.76))*100),
+          Math.round(((d.waterPct||wm)/wm)*100),
+          Math.round(((d.boneMass||boneT)/boneT)*100),
+          Math.round(((d.bmr||s.bmrAvg)/s.bmrAvg)*100),
+        ],
+        backgroundColor:'rgba(66,165,245,0.2)',borderColor:C.blue,pointBackgroundColor:C.blue,pointRadius:3,
+      },{label:'標準 (100%)',data:[100,100,100,100,100,100],
+        backgroundColor:'rgba(102,187,106,0.08)',borderColor:C.green,borderDash:[4,4],pointRadius:0,
+      }]
+    },
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{r:{min:50,max:120,ticks:{font:{size:8},stepSize:20},pointLabels:{font:{size:9}}}},
+      plugins:{legend:{position:'bottom',labels:{font:{size:9},boxWidth:10,padding:6}}}}
+  });
+
+  new Chart(document.getElementById('rc_bmr'), {
+    type:'bar', data:{labels:['あなた','同年代平均'],datasets:[{data:[d.bmr||0,s.bmrAvg],backgroundColor:[C.orange,C.green],borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      scales:{y:{min:Math.min((d.bmr||s.bmrAvg)-200,s.bmrAvg-200),max:Math.max((d.bmr||s.bmrAvg)+200,s.bmrAvg+200),ticks:{font:{size:9}}},x:{ticks:{font:{size:9}}}},
+      plugins:{legend:{display:false}}}
+  });
+
+  const fp=d.bodyFatPct||0, mp=d.musclePct||(d.muscleMass&&d.weight?Math.round(d.muscleMass/d.weight*1000)/10:0);
+  const bp=d.boneMass&&d.weight?Math.round(d.boneMass/d.weight*1000)/10:0;
+  const op=Math.max(0,Math.round((100-fp-mp-bp)*10)/10);
+  new Chart(document.getElementById('rc_pie'), {
+    type:'doughnut', data:{
+      labels:[`脂肪 (${fp}%)`,`筋肉 (${mp}%)`,`骨 (${bp}%)`,`他 (${op}%)`],
+      datasets:[{data:[fp,mp,bp,op],backgroundColor:[C.fat,C.muscle,C.bone,'#78909c'],borderWidth:1}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'55%',
+      plugins:{legend:{position:'right',labels:{font:{size:9},boxWidth:10,padding:6}}}}
+  });
+}
+
+function backToInput() {
+  document.getElementById('app-report').style.display = 'none';
+  document.getElementById('app-input').style.display = 'block';
+}
+</script>
+</body>
+</html>
